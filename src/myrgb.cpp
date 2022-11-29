@@ -90,6 +90,7 @@ void MYRGB::getPayload(char (&_msg)[], MQTT _choice)
     case MQTT::get:
             snprintf (_msg, MSG_BUFFER_SIZE, "{ \"state\": \"%s\","
                                             "  \"brightness\": %u,"
+                                            "  \"color_mode\": \"rgb\","
                                             "  \"color\":"
                                                 " {\"r\": %u,"
                                                 "  \"g\": %u,"

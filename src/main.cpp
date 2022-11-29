@@ -22,6 +22,21 @@
   MYRGB myrgb(UPDATE_TIME);
 #endif
 
+#ifdef enableDS18B20                // or if defined any other sensor that uses OneWire
+  #include <OneWire.h>
+  OneWire onewire(ONEWIRE_PIN);
+#endif
+
+#ifdef enableDS18B20
+  #include "myds18b20.h"
+  MYDS18B20 myds18b20;
+#endif
+
+#ifdef enableBMP180
+  #include "mybmp180.h"
+  MYBMP180 mybmp180;
+#endif
+
 const char* ssid = "Keenetic-9158";
 const char* password = "tSkjdXFC";
 const char* mqtt_server = "192.168.1.85";
@@ -76,6 +91,15 @@ void publishConfigs() {
 
   #ifdef enableRGB
     PUBLISHMSG(myrgb, "Publish config   [%s], %s\n\n", false, MYRGB::cfg)
+  #endif
+
+  #ifdef enableDS18B20
+    PUBLISHMSG(myds18b20, "Publish config   [%s], %s\n\n", false, MYDS18B20::cfg)
+  #endif
+
+  #ifdef enableBMP180
+    PUBLISHMSG(mybmp180, "Publish config   [%s], %s\n\n", false, MYBMP180::cfg, MYBMP180::pressure)
+    PUBLISHMSG(mybmp180, "Publish config   [%s], %s\n\n", false, MYBMP180::cfg, MYBMP180::temperature)
   #endif
 } 
 
@@ -225,6 +249,26 @@ void loop() {
       if (mylux.stateChanged())
       {
         PUBLISHMSG(mylux, "Publish message  [%s] %s\n", true, MYLUX::get)
+      }
+    #endif
+
+    #ifdef enableDS18B20
+      myds18b20.update();
+      if (myds18b20.stateChanged())
+      {
+        PUBLISHMSG(myds18b20, "Publish message  [%s] %s\n", true, MYDS18B20::get)
+      }
+    #endif
+
+    #ifdef enableBMP180
+      mybmp180.update();
+      if (mybmp180.stateChanged(MYBMP180::pressure))
+      {
+        PUBLISHMSG(mybmp180, "Publish message  [%s] %s\n", true, MYBMP180::get, MYBMP180::pressure)
+      }
+      if (mybmp180.stateChanged(MYBMP180::temperature))
+      {
+        PUBLISHMSG(mybmp180, "Publish message  [%s] %s\n", true, MYBMP180::get, MYBMP180::temperature)
       }
     #endif
 
