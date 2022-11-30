@@ -115,7 +115,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     if (myled.parsePayload(strPayload))
     {
       mqttClient.unsubscribe(myled.getTopic(MYLEDBUILTIN::get));
-      Serial.printf("Complying with previous LED state. Unsubscribed from topic [%s]\n", myled.getTopic(MYLEDBUILTIN::get));
+      Serial.printf("Complying with previous get LED state. Unsubscribed from topic [%s]\n", myled.getTopic(MYLEDBUILTIN::get));
     }
   }
   else if (strTopic.equals(myled.getTopic(MYLEDBUILTIN::set)))
@@ -133,7 +133,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     {
       myrgb.stateUndefined(false);
       mqttClient.unsubscribe(myrgb.getTopic(MYRGB::get));
-      Serial.printf("Complying with previous RGB state. Unsubscribed from topic [%s]\n", myrgb.getTopic(MYRGB::get));
+      Serial.printf("Complying with previous RGB get state. Unsubscribed from topic [%s]\n", myrgb.getTopic(MYRGB::get));
     }
   }  
   else if (strTopic.equals(myrgb.getTopic(MYRGB::set)))

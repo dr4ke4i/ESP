@@ -88,17 +88,19 @@ void MYRGB::getPayload(char (&_msg)[], MQTT _choice)
         snprintf(_msg, MSG_BUFFER_SIZE, strRGBcfgPayload, strRGBgetTopic, strRGBsetTopic, strESPstateTopic);
         break;
     case MQTT::get:
-            snprintf (_msg, MSG_BUFFER_SIZE, "{ \"state\": \"%s\","
-                                            "  \"brightness\": %u,"
-                                            "  \"color_mode\": \"rgb\","
-                                            "  \"color\":"
-                                                " {\"r\": %u,"
-                                                "  \"g\": %u,"
-                                                "  \"b\": %u}, "
-                                            "  \"effect\": \"%s\""
-                                            "}",
-            (state_.enabled ? "ON" : "OFF"), state_.brightness,
-            state_.red, state_.green, state_.blue, state_.effectName);
+        snprintf (_msg, MSG_BUFFER_SIZE, "{ \"state\": \"%s\","
+                                        "  \"brightness\": %u,"
+                                        "  \"color_mode\": \"rgb\","
+                                        "  \"color\":"
+                                            " {\"r\": %u,"
+                                            "  \"g\": %u,"
+                                            "  \"b\": %u}, "
+                                        "  \"effect\": \"%s\""
+                                        "}",
+        (state_.enabled ? "ON" : "OFF"), state_.brightness,
+        state_.red, state_.green, state_.blue, state_.effectName);
+
+            // snprintf (_msg, MSG_BUFFER_SIZE, "{ \"state\": \"%s\" }", (state_.enabled ? "ON" : "OFF"));
         break;
     case MQTT::set:
         /// !!! ///
@@ -191,16 +193,17 @@ bool MYRGB::parsePayload(const String &_payload)
             Serial.print("Deserialization [ ");
 
             /// EFFECT AND COLOR TRANSITION
+            bool transition_found = false;
             bool eff_found = false;
             if (jsonDoc_.containsKey("transition"))
             {
+                transition_found = true;
                 newState.transitionTime = (uint16_t)jsonDoc_["transition"];
-                Serial.printf("{ transition: %u } ", newState.transitionTime);
-                eff_found = true;
+                Serial.printf("{ transition: %u } ", newState.transitionTime);                
                 newState.effectIndex = EFFINDEX::EFF_TRANSITION;
                 newState.effectName = effectsList[EFFINDEX::EFF_PLAIN];
-            }            
-            if ((!eff_found) && jsonDoc_.containsKey("effect"))
+            }
+            if ((!transition_found) && jsonDoc_.containsKey("effect"))
             {
                 String value = String((const char *)jsonDoc_["effect"]);     
                 Serial.printf("{ effect: \"%s\" } ", value.c_str());     
@@ -215,9 +218,14 @@ bool MYRGB::parsePayload(const String &_payload)
                     }
                 if (!eff_found)
                 {
-                    result = false;            
+                    result = false;                    
                     Serial.print("/* <- unknown value*/ ");
                 }
+            }
+            if ( (!(transition_found || eff_found)) && (state_.effectIndex == EFFINDEX::EFF_TRANSITION) )
+            {
+                newState.effectIndex = EFFINDEX::EFF_PLAIN;
+                newState.effectName = effectsList[EFFINDEX::EFF_PLAIN];             
             }
 
             /// STATE ON / OFF
@@ -252,56 +260,48 @@ bool MYRGB::parsePayload(const String &_payload)
                 Serial.printf("{ brightness: %u } ", newState.brightness);
             }
 
-            ///
-            if (eff_found)
+            /// initial states of Effects
+            switch (newState.effectIndex)
             {
-                switch (newState.effectIndex)
-                {
-                case EFF_PLAIN:                    
-                    set_(newState);
-                    break;
-
-                case EFF_TRANSITION:
-                    startState_ = state_;
-                    endState_   = newState;
-                    if (endState_.enabled==false)           
-                    {
-                        endState_.brightness = 0;
-                        endState_.red = 0;
-                        endState_.green = 0;
-                        endState_.blue = 0;
-                    }
-                    else if (startState_.enabled==false)    // && endState_.enabled == true
-                    {
-                        startState_.enabled = true;
-                        startState_.brightness = 0;
-                        startState_.red = 0;
-                        startState_.green = 0;
-                        startState_.blue = 0;
-                    }
-                    startState_.millis = millis();
-                    endState_.millis   = millis() + (unsigned long)newState.transitionTime * 1000;
-                    startState_.effectIndex = EFF_TRANSITION;
-                    endState_.effectIndex = EFF_PLAIN;
-                    startState_.effectName = effectsList[EFF_PLAIN];
-                    endState_.effectName = effectsList[EFF_PLAIN];
-                    tmrState.setPeriod((unsigned long)newState.transitionTime * 1000);
-                    tmrState.start(false);
-                    set_(startState_);
-                    break;
-                
-                default:
-                    newState.effectIndex = EFF_PLAIN;
-                    newState.effectName = effectsList[EFF_PLAIN];
-                    set_(newState);
-                    break;
-                }
-            }
-            else
-            {
+            case EFF_PLAIN:                    
                 set_(newState);
-            }
+                break;
+
+            case EFF_TRANSITION:
+                startState_ = state_;
+                endState_   = newState;
+                if (endState_.enabled==false)           
+                {
+                    endState_.brightness = 0;
+                    // endState_.red = 0;
+                    // endState_.green = 0;
+                    // endState_.blue = 0;
+                }
+                else if (startState_.enabled==false)    // && endState_.enabled == true
+                {
+                    startState_.enabled = true;
+                    startState_.brightness = 0;
+                    startState_.red = 0;
+                    startState_.green = 0;
+                    startState_.blue = 0;
+                }
+                startState_.millis = millis();
+                endState_.millis   = millis() + (unsigned long)newState.transitionTime * 1000;
+                startState_.effectIndex = EFF_TRANSITION;
+                endState_.effectIndex = EFF_PLAIN;
+                startState_.effectName = effectsList[EFF_PLAIN];
+                endState_.effectName = effectsList[EFF_PLAIN];
+                tmrState.setPeriod((unsigned long)newState.transitionTime * 1000);
+                tmrState.start(false);
+                set_(startState_);
+                break;
             
+            default:
+                newState.effectIndex = EFF_PLAIN;
+                newState.effectName = effectsList[EFF_PLAIN];
+                set_(newState);
+                break;
+            }            
             Serial.println("]");
         }
         // DEBUGSTATE("parsePayload() state_", state_)
