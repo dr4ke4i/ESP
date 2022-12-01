@@ -39,3 +39,5 @@ Devices are:
 - LED strip as light component, using FastLED library
 
 All of these devices have been tested in my home environment.
+
+Anyone can use this code in any ways they like, free of charge.
