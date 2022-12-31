@@ -29,6 +29,7 @@ struct MYRGB {
             uint16_t transitionTime;
             uint16_t speed;
             uint16_t quantity;
+            uint16_t hue;
             int      effectIndex;
             const char* effectName;            
             unsigned long   millis;
@@ -55,15 +56,19 @@ struct MYRGB {
     
     private:
         CRGB leds_[NUM_LEDS];
+        CRGB led_rgb;
+        CHSV led_hsv;
         StaticJsonDocument<512> jsonDoc_;
-        MYTIMER tmrTimeout, tmrState;
+        MYTIMER tmrTimeout, tmrTransition, tmrFade;
 
-        MYDATA state_, lastState_, startState_, endState_;
+        MYDATA state_, lastState_, startState_, endState_, effectState_, plainState_;
         bool stateUndefined_;
         MYDATA get_(void);
         void get_(MYDATA &_state);
         void set_(const MYDATA &_state);
         CRGB setColor(const MYDATA &_state);
+        void setDitherFill(const MYDATA &_state);   // uses leds_[]
+        void setDitherFill(uint32_t _red, uint32_t _green, uint32_t _blue, uint32_t _brightness);   // uses leds_[]
 
         const char* strRGBgetTopic      = "homeassistant/light/" ESPnode "/RGB/get";
         const char* strRGBsetTopic      = "homeassistant/light/" ESPnode "/RGB/set";
@@ -78,7 +83,18 @@ struct MYRGB {
                                           "  \"color_mode\": \"true\","
                                           "  \"supported_color_modes\": [\"rgb\"],"
                                           "  \"effect\": \"true\","
-                                          "  \"effect_list\": [\"Plain\", \"Fire\", \"Sparks\", \"Rainbow\", \"Sensor\"] "
+                                          "  \"effect_list\":"
+                                            "["
+                                            "\"Plain\""
+                                            ","
+                                            // "\"Fire\""
+                                            // ","
+                                            "\"Sparks\""
+                                            // ","
+                                            // "\"Rainbow\""
+                                            // ","
+                                            // "\"Sensor\""
+                                            "]"
                                           "}";
 };
 

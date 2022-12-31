@@ -3,9 +3,11 @@
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
+#include <ESP8266mDNS.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include "mytimer.h"
+#include "MQTTnumbers.h"
 
 #ifdef enableDHT
   #include "mydht.h"
@@ -39,14 +41,15 @@
 
 const char* ssid = "Keenetic-9158";
 const char* password = "tSkjdXFC";
-const char* mqtt_server = "192.168.1.85";
+const char* mqtt_server = "raspberrypi.local";
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
 MYTIMER tmrUpdate(UPDATE_TIME);
-MYTIMER tmrFastLED(1000/30);
 MYLEDBUILTIN myled(UPDATE_TIME);
+MQTTNUMBERS mqttNumbers(UPDATE_TIME);
 char msg[MSG_BUFFER_SIZE];
+char buf[AUX_BUFFER_SIZE];
 
 const char* strESPstateTopic    = "homeassistant/" ESPnode "/state";
 const char* strESPdebugOTAstate = "homeassistant/" ESPnode "/OTA";
@@ -57,6 +60,7 @@ const char* strHAonlineTopic    = "homeassistant/status";
     Serial.printf(STRINGMSG, OBJ.getTopic(__VA_ARGS__), msg); \
     mqttClient.publish(OBJ.getTopic(__VA_ARGS__), msg, RETAINED);
 
+/// Setup WIFI Connection
 void setup_wifi() {
   delay(10);
   Serial.printf("\nConnecting to %s", ssid);
@@ -75,10 +79,14 @@ void setup_wifi() {
   Serial.println(WiFi.localIP());
 }
 
+/// Publish MQTT configs on Start or Reboot
 void publishConfigs() {
   mqttClient.publish(strESPdebugOTAstate, "Ready", true);
 
   PUBLISHMSG(myled, "Publish config   [%s], %s\n\n", false, MYLEDBUILTIN::cfg)
+
+  for (int i = 0; i < MQTTNUMBERS_MAXPARAM; i++)
+    { PUBLISHMSG(mqttNumbers, "Publish config   [%s], %s\n\n", false, MQTTNUMBERS::cfg, i) }
 
   #ifdef enableLUX
     PUBLISHMSG(mylux, "Publish config   [%s], %s\n\n", false, MYLUX::cfg)
@@ -103,12 +111,55 @@ void publishConfigs() {
   #endif
 } 
 
+/// CALLBACK function for processing of Incoming Payloads
 void callback(char* topic, byte* payload, unsigned int length) {
   String strTopic = String(topic);
   String strPayload;
   for (unsigned int i = 0; i < length; i++)
     strPayload += (char)payload[i];
   Serial.printf("Recieved message [%s] %s\n", topic, strPayload.c_str());
+
+  for (int i = 0; i < MQTTNUMBERS_MAXPARAM; i++)
+  {
+      if (strTopic.equals(mqttNumbers.getTopic(MQTTNUMBERS::get, i)))
+      {
+        if (mqttNumbers.parsePayload(strPayload, i))
+        {
+          mqttClient.unsubscribe(mqttNumbers.getTopic(MQTTNUMBERS::get, i));
+          Serial.printf("Complying with previous get LED state. Unsubscribed from topic [%s]\n", mqttNumbers.getTopic(MQTTNUMBERS::get, i));
+          #ifdef enableRGB
+            MYRGB::MYDATA value = myrgb.state();
+            switch (i)
+            {
+              case 0: value.quantity = mqttNumbers.state(i); break;
+              case 1: value.speed = mqttNumbers.state(i); break;
+              case 2: value.hue = mqttNumbers.state(i); break;
+              case 3: value.transitionTime = mqttNumbers.state(i); break;
+            }            
+            myrgb.state(value);
+          #endif
+        }
+      }
+      else if (strTopic.equals(mqttNumbers.getTopic(MQTTNUMBERS::set, i)))
+      {
+        mqttNumbers.parsePayload(strPayload, i);
+        if (mqttNumbers.stateChanged(i))
+          {
+            PUBLISHMSG(mqttNumbers, "Publish message  [%s] %s\n", true, MQTTNUMBERS::get, i)
+            #ifdef enableRGB
+              MYRGB::MYDATA value = myrgb.state();
+              switch (i)
+              {
+                case 0: value.quantity = mqttNumbers.state(i); break;
+                case 1: value.speed = mqttNumbers.state(i); break;
+                case 2: value.hue = mqttNumbers.state(i); break;
+                case 3: value.transitionTime = mqttNumbers.state(i); break;
+              }            
+              myrgb.state(value);
+            #endif
+          }
+      }
+  }
 
   if (strTopic.equals(myled.getTopic(MYLEDBUILTIN::get)))
   {
@@ -160,6 +211,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
 }
 
+/// Initiate MQTT (Re)Connection and topic Subscription
 void reconnect() {
   while (!mqttClient.connected()) {
     Serial.print("Attempting MQTT connection...");
@@ -174,6 +226,11 @@ void reconnect() {
       mqttClient.subscribe(myled.getTopic(MYLEDBUILTIN::set));
       mqttClient.subscribe(myled.getTopic(MYLEDBUILTIN::get));
       myled.stateUndefined(true);
+      for (int i = 0; i < MQTTNUMBERS_MAXPARAM; i++)
+      {
+        mqttClient.subscribe(mqttNumbers.getTopic(MQTTNUMBERS::set, i));
+        mqttClient.subscribe(mqttNumbers.getTopic(MQTTNUMBERS::get, i));
+      }
       #ifdef enableRGB
         mqttClient.subscribe(myrgb.getTopic(MYRGB::set));
         mqttClient.subscribe(myrgb.getTopic(MYRGB::get));
@@ -193,6 +250,7 @@ void reconnect() {
   }
 }
 
+/// Setup WiFi, MQTT Connections, Arduino OTA
 void setup() {
   Serial.begin(115200);
   Serial.println("\nRESET");
@@ -218,7 +276,6 @@ void setup() {
   });
   ArduinoOTA.begin();
   tmrUpdate.start();
-  tmrFastLED.start();
 }
 
 void loop() {
@@ -279,6 +336,16 @@ void loop() {
       PUBLISHMSG(myled,"Publish message  [%s] %s\n", true, MYLEDBUILTIN::get)
     }
 
+    for (int i = 0; i < MQTTNUMBERS_MAXPARAM; i++)
+    {
+      if (mqttNumbers.stateUndefined() && mqttNumbers.undefinedTimeout())
+      {
+        mqttClient.unsubscribe(mqttNumbers.getTopic(MQTTNUMBERS::get, i));
+        Serial.printf("Timeout getting previous MQTT number state. Unsubscribed from topic [%s]\n", mqttNumbers.getTopic(MQTTNUMBERS::get, i));
+        PUBLISHMSG(mqttNumbers,"Publish message  [%s] %s\n", true, MQTTNUMBERS::get, i)
+      }
+    }
+
     #ifdef enableRGB
     if (myrgb.stateUndefined() && myrgb.undefinedTimeout())
     {
@@ -295,7 +362,6 @@ void loop() {
     if ((!myrgb.stateUndefined()) && (myrgb.stateChanged()))
     {
       PUBLISHMSG(myrgb, "Publish message  [%s] %s\n", true, MYRGB::get)
-    }
-    // if (tmrFastLED.click())      
+    }  
   #endif
 }
