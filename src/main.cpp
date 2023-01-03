@@ -85,9 +85,6 @@ void publishConfigs() {
 
   PUBLISHMSG(myled, "Publish config   [%s], %s\n\n", false, MYLEDBUILTIN::cfg)
 
-  for (int i = 0; i < MQTTNUMBERS_MAXPARAM; i++)
-    { PUBLISHMSG(mqttNumbers, "Publish config   [%s], %s\n\n", false, MQTTNUMBERS::cfg, i) }
-
   #ifdef enableLUX
     PUBLISHMSG(mylux, "Publish config   [%s], %s\n\n", false, MYLUX::cfg)
   #endif
@@ -100,6 +97,9 @@ void publishConfigs() {
   #ifdef enableRGB
     PUBLISHMSG(myrgb, "Publish config   [%s], %s\n\n", false, MYRGB::cfg)
   #endif
+
+  for (int i = 0; i < MQTTNUMBERS_MAXPARAM; i++)
+    { PUBLISHMSG(mqttNumbers, "Publish config   [%s], %s\n\n", false, MQTTNUMBERS::cfg, i) }
 
   #ifdef enableDS18B20
     PUBLISHMSG(myds18b20, "Publish config   [%s], %s\n\n", false, MYDS18B20::cfg)
@@ -118,49 +118,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   for (unsigned int i = 0; i < length; i++)
     strPayload += (char)payload[i];
   Serial.printf("Recieved message [%s] %s\n", topic, strPayload.c_str());
-
-  for (int i = 0; i < MQTTNUMBERS_MAXPARAM; i++)
-  {
-      if (strTopic.equals(mqttNumbers.getTopic(MQTTNUMBERS::get, i)))
-      {
-        if (mqttNumbers.parsePayload(strPayload, i))
-        {
-          mqttClient.unsubscribe(mqttNumbers.getTopic(MQTTNUMBERS::get, i));
-          Serial.printf("Complying with previous get LED state. Unsubscribed from topic [%s]\n", mqttNumbers.getTopic(MQTTNUMBERS::get, i));
-          #ifdef enableRGB
-            MYRGB::MYDATA value = myrgb.state();
-            switch (i)
-            {
-              case 0: value.quantity = mqttNumbers.state(i); break;
-              case 1: value.speed = mqttNumbers.state(i); break;
-              case 2: value.hue = mqttNumbers.state(i); break;
-              case 3: value.transitionTime = mqttNumbers.state(i); break;
-            }            
-            myrgb.state(value);
-          #endif
-        }
-      }
-      else if (strTopic.equals(mqttNumbers.getTopic(MQTTNUMBERS::set, i)))
-      {
-        mqttNumbers.parsePayload(strPayload, i);
-        if (mqttNumbers.stateChanged(i))
-          {
-            PUBLISHMSG(mqttNumbers, "Publish message  [%s] %s\n", true, MQTTNUMBERS::get, i)
-            #ifdef enableRGB
-              MYRGB::MYDATA value = myrgb.state();
-              switch (i)
-              {
-                case 0: value.quantity = mqttNumbers.state(i); break;
-                case 1: value.speed = mqttNumbers.state(i); break;
-                case 2: value.hue = mqttNumbers.state(i); break;
-                case 3: value.transitionTime = mqttNumbers.state(i); break;
-              }            
-              myrgb.state(value);
-            #endif
-          }
-      }
-  }
-
+  
   if (strTopic.equals(myled.getTopic(MYLEDBUILTIN::get)))
   {
     if (myled.parsePayload(strPayload))
@@ -208,6 +166,41 @@ void callback(char* topic, byte* payload, unsigned int length) {
   {
     if (strPayload.equals("online"))
       publishConfigs();
+  }
+
+  for (int i = 0; i < MQTTNUMBERS_MAXPARAM; i++)
+  {
+      bool equalsSet = strTopic.equals(mqttNumbers.getTopic(MQTTNUMBERS::set, i));
+      bool equalsGet = strTopic.equals(mqttNumbers.getTopic(MQTTNUMBERS::get, i));
+      if (equalsGet || equalsSet)
+      {
+        bool numberUndefined = mqttNumbers.stateUndefined(i);
+        if (mqttNumbers.parsePayload(strPayload, i))
+        {
+            if (numberUndefined)
+            {
+                mqttClient.unsubscribe(mqttNumbers.getTopic(MQTTNUMBERS::get, i));
+                Serial.printf("Complying with previous get MQTT Numbers state. Unsubscribed from topic [%s]\n", mqttNumbers.getTopic(MQTTNUMBERS::get, i));
+            }
+            if (mqttNumbers.stateChanged(i))
+            {
+              PUBLISHMSG(mqttNumbers, "Publish message  [%s] %s\n", true, MQTTNUMBERS::get, i)
+              #ifdef enableRGB
+                MYRGB::MYDATA value = myrgb.state();
+                bool RGBundefined = myrgb.stateUndefined();
+                switch (i)
+                {
+                  case 0: value.quantity = mqttNumbers.state(i); break;
+                  case 1: value.speed = mqttNumbers.state(i); break;
+                  case 2: value.hue = mqttNumbers.state(i); break;
+                  case 3: value.transitionTime = mqttNumbers.state(i); break;
+                }            
+                myrgb.state(value);
+                if (RGBundefined)  myrgb.stateUndefined(true);
+              #endif          
+            }
+        }
+      }
   }
 }
 
@@ -338,7 +331,7 @@ void loop() {
 
     for (int i = 0; i < MQTTNUMBERS_MAXPARAM; i++)
     {
-      if (mqttNumbers.stateUndefined() && mqttNumbers.undefinedTimeout())
+      if (mqttNumbers.stateUndefined(i) && mqttNumbers.undefinedTimeout())
       {
         mqttClient.unsubscribe(mqttNumbers.getTopic(MQTTNUMBERS::get, i));
         Serial.printf("Timeout getting previous MQTT number state. Unsubscribed from topic [%s]\n", mqttNumbers.getTopic(MQTTNUMBERS::get, i));

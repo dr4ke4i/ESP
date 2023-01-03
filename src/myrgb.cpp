@@ -51,10 +51,10 @@ bool operator==(const MYRGB::MYDATA &_lhs, const MYRGB::MYDATA &_rhs)
     result &= (_lhs.blue == _rhs.blue);
     result &= (_lhs.brightness == _rhs.brightness);
     result &= (_lhs.effectIndex == _rhs.effectIndex);
-    result &= (_lhs.speed == _rhs.speed);
-    result &= (_lhs.quantity == _rhs.quantity);    
-    result &= (_lhs.transitionTime == _rhs.transitionTime);
-    result &= (_lhs.hue == _rhs.hue);
+    // result &= (_lhs.speed == _rhs.speed);
+    // result &= (_lhs.quantity == _rhs.quantity);    
+    // result &= (_lhs.transitionTime == _rhs.transitionTime);
+    // result &= (_lhs.hue == _rhs.hue);
     return result;
 }
 
@@ -416,17 +416,25 @@ void MYRGB::update()
             }            
             break;
         
-        case EFF_SPARKS:
-            #define GUARANTEE_THRESHOLD 64
+        case EFF_SPARKS:            
             tmrTransition.setPeriod(state_.speed);
             tmrFade.setPeriod(state_.transitionTime);
             // FADE everything
             if (tmrFade.click())
-            {
+            {                   
+                uint8_t     value;
+                Serial.printf("< leds_[0]: {%u %u %u}, \t ", leds_[0].r, leds_[0].g, leds_[0].b);
                 for (int i = 0; i < NUM_LEDS; i++)
                 {
-                    leds_[i]--;
+                    for (int j = 0; j < 3; j++)
+                    {
+                        value = leds_[i].raw[j];
+                        value = (value > 0) ? value - (value >> 5) - 1 : 0;
+                        leds_[i].raw[j] = value;
+                    }
+                    // leds_[i]--;
                 }
+                Serial.printf("leds_[0]: {%u %u %u} >\n", leds_[0].r, leds_[0].g, leds_[0].b);
             }
             // SPAWN new sparks
             if (tmrTransition.click())

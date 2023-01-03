@@ -10,8 +10,8 @@ MQTTNUMBERS::MQTTNUMBERS(unsigned long _timeout)
     {
         state_[i] = -1;
         lastState_[i] = -1;
-    }
-    stateUndefined_ = true;
+        stateUndefined_[i] = true;
+    }    
     tmrTimeout.start(false);
 }
 
@@ -87,9 +87,9 @@ bool MQTTNUMBERS::state(MYDATA _newState, int _param)
 {    
     if ((_param >= 0) && (_param < MQTTNUMBERS_MAXPARAM))
     {
-        if (stateUndefined_)
+        if (stateUndefined_[_param])
         {
-            stateUndefined(false);
+            stateUndefined(false,_param);
         }
         lastState_[_param] = state_[_param];
         state_[_param] = _newState;
@@ -103,28 +103,38 @@ bool MQTTNUMBERS::state(MYDATA _newState, int _param)
 }
 
 //GET true if state is undefined
-bool MQTTNUMBERS::stateUndefined(void)
+bool MQTTNUMBERS::stateUndefined(int _param)
 {
-    return stateUndefined_;
+    if ((_param >= 0) && (_param < MQTTNUMBERS_MAXPARAM))
+        {
+            return stateUndefined_[_param];
+        }
+    return false;
 }
 
 //SET state to defined/undefined
-void MQTTNUMBERS::stateUndefined(bool _newStateUndefined)
-{
-    if (!_newStateUndefined)        // if new state is defined
-    {                               
-        tmrTimeout.stop();
-        stateUndefined_ = false;
-    }
-    else                            // else if new state is undefined
-    {
-        if (!stateUndefined_)       // if old state was defined
-        {
-            tmrTimeout.start(false);
-            stateUndefined_ = true;
+void MQTTNUMBERS::stateUndefined(bool _newStateUndefined, int _param)
+{    
+    if ((_param >= 0) && (_param < MQTTNUMBERS_MAXPARAM))
+    {        
+        if (!_newStateUndefined)        // if new state is defined
+        {   
+            stateUndefined_[_param] = false;                            
+            bool total = false;
+            for (int i = 0; i < MQTTNUMBERS_MAXPARAM; i++)
+                {   if (stateUndefined_[i] == true)      total = true;   }
+            if (total == false)   tmrTimeout.stop();            
         }
-        // else if new state && old state are undefined - do nothing
-    } 
+        else                            // else if new state is undefined
+        {
+            if (!stateUndefined_[_param])       // if old state was defined
+            {
+                tmrTimeout.start(false);
+                stateUndefined_[_param] = true;
+            }
+            // else if new state && old state are undefined - do nothing
+        } 
+    }
 }
 
 bool MQTTNUMBERS::stateChanged(int _param)
@@ -158,11 +168,15 @@ void MQTTNUMBERS::update()
 
 bool MQTTNUMBERS::parsePayload(const String &_payload, int _param)
 {
-    long conversion_result = _payload.toInt();
-    if (conversion_result < -1)      return false;
-    if (conversion_result > 1000)   return false;
-    set_(conversion_result, _param);
-    return true;
+    if ((_param >= 0) && (_param < MQTTNUMBERS_MAXPARAM))
+    {
+        long conversion_result = _payload.toInt();
+        if (conversion_result < -1)      return false;
+        if (conversion_result > 1000)   return false;
+        state(conversion_result, _param);
+        return true;
+    }
+    return false;
 }
 
 bool MQTTNUMBERS::parsePayload(const char (&_payload)[], int _param)

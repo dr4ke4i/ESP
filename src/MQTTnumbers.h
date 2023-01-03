@@ -26,8 +26,8 @@ struct MQTTNUMBERS {
         bool state(MYDATA _newState, int _param);                       // set
 
         bool stateChanged(int _param);                          // get        
-        bool stateUndefined(void);                        // get
-        void stateUndefined(bool _newStateUndefined);     // set
+        bool stateUndefined(int _param);                        // get
+        void stateUndefined(bool _newStateUndefined, int _param);     // set
         bool undefinedTimeout(void);
 
         bool parsePayload(const String &_payload, int _param);
@@ -39,7 +39,7 @@ struct MQTTNUMBERS {
     private:
         MYDATA state_[MQTTNUMBERS_MAXPARAM];
         MYDATA lastState_[MQTTNUMBERS_MAXPARAM];
-        bool stateUndefined_ = true;
+        bool stateUndefined_[MQTTNUMBERS_MAXPARAM];
         MYDATA get_(int _param);
         void set_(MYDATA _state, int _param);
         const char* strMQTTParamGetTopicTemplate      = "homeassistant/number/" ESPnode "/RGB_Parameter_%u/get";

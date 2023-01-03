@@ -35,7 +35,7 @@
 #elif Profile == 3
   #define ESPnode "ESP3"
   #define enableDHT
-  // #define enableBMP180
+  #define enableBMP180
   #define enableRGB
   #define enableLUX                  // uses SDA_PIN, SCL_PIN
   // #define enableDS18B20              // uses ONEWIRE_PIN

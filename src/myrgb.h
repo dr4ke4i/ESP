@@ -1,6 +1,8 @@
 #ifndef __INCLUDE_MYRGB_H
 #define __INCLUDE_MYRGB_H
 
+#define GUARANTEE_THRESHOLD 64
+
 #include "Arduino.h"
 #include "main.h"
 #include "mytimer.h"
