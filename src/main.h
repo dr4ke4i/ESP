@@ -2,11 +2,12 @@
 #ifndef __INCLUDE_MAIN_H
 #define __INCLUDE_MAIN_H
 
-#define Profile 3
+#define Profile 4
 
 // Спальня  (Profile 1 // 192.168.1.132)
 // Гостиная (Profile 2 // 192.168.1.122)
-// Testing  (Profile 3 // 192.168.1.94)
+// Ванная  (Profile 3 // 192.168.1.94)
+// Testing  (Profile 4 // 192.168.1.94)
 
 #define SCL_PIN             D1       // GPIO5/SCL
 #define SDA_PIN             D2       // GPIO4/SDA
@@ -16,32 +17,60 @@
 
 #if Profile == 1
   #define ESPnode "ESP1"
+  #define enableLEDbuiltin              // uses GPIO02 (D4)
+  #define enableMQTTNumbers
   #define enableDHT
-  #define enableLUX
+  // #define enableBMP180
   #define enableRGB  
+  #define enableLUX
+  // #define enableDS18B20              // uses ONEWIRE_PIN 
+  // #define enableBinarySensors
+  // #define enableMQTTswitches
   #define DHT_DATA_PIN      D5       // GPIO14
   #define WS2812B_DATA_PIN  D6       // GPIO12
   #define NUM_LEDS          150
 #elif Profile == 2
   #define ESPnode "ESP2"
+  #define enableLEDbuiltin              // uses GPIO02 (D4)
+  #define enableMQTTNumbers
   #define enableDHT
   #define enableBMP180
   #define enableRGB
   #define enableLUX
-  #define enableDS18B20              // uses ONEWIRE_PIN 
+  #define enableDS18B20              // uses ONEWIRE_PIN   
+  // #define enableBinarySensors
+  // #define enableMQTTswitches
   #define DHT_DATA_PIN      D5       // GPIO14
   #define WS2812B_DATA_PIN  D6       // GPIO12
   #define NUM_LEDS          300
 #elif Profile == 3
   #define ESPnode "ESP3"
+  // #define enableLEDbuiltin              // uses GPIO02 (D4)
+  // #define enableMQTTNumbers
   #define enableDHT
-  #define enableBMP180
-  #define enableRGB
-  #define enableLUX                  // uses SDA_PIN, SCL_PIN
+  // #define enableBMP180
+  // #define enableRGB
+  // #define enableLUX                  // uses SDA_PIN, SCL_PIN
   // #define enableDS18B20              // uses ONEWIRE_PIN
+  #define enableBinarySensors
+  #define enableMQTTswitches
   #define DHT_DATA_PIN      D5       // GPIO14
   #define NUM_LEDS          3
   #define WS2812B_DATA_PIN  D6      // GPIO12   
+#elif Profile == 4
+  #define ESPnode "ESP4"
+  #define enableLEDbuiltin              // uses GPIO02 (D4)
+  #define enableMQTTNumbers
+  // #define enableDHT
+  // #define enableBMP180
+  #define enableRGB
+  // #define enableLUX                  // uses SDA_PIN, SCL_PIN
+  // #define enableDS18B20              // uses ONEWIRE_PIN
+  // #define enableBinarySensors
+  // #define enableMQTTswitches
+  #define DHT_DATA_PIN      D5       // GPIO14
+  #define NUM_LEDS          30
+  #define WS2812B_DATA_PIN  D6      // GPIO12  
 #endif
 
 #define MSG_BUFFER_SIZE	512

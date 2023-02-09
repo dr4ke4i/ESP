@@ -59,7 +59,7 @@ uint32_t MYTIMER::progress_()
 {
     if (isrunning_)
     {
-        uint64_t result = millis() - startMillis_;
+        uint64_t result = (uint64_t)millis() - (uint64_t)startMillis_;
         result = (result << 32) / period_;
         result = result > ((((uint64_t)1) << 32) - 1) ? ((((uint64_t)1) << 32) - 1) : result;            
         return (uint32_t)result;    
